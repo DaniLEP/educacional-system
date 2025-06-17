@@ -1,37 +1,39 @@
 import Header from "../../components/ui/header/index";
 import Footer from "../../components/ui/footer/index";
 import { useNavigate } from "react-router-dom";
-import { ClipboardList, FolderKanban, FilePlus2, ViewIcon, User2Icon, SearchCheckIcon } from "lucide-react";
+import {  FolderKanban,   User2Icon, SearchCheckIcon } from "lucide-react";
 
 export default function Home() {
   const navigate = useNavigate();
 
   const cards = [
     {
-      title: "Registers", 
-      icon: <FilePlus2 className="w-10 h-10 text-blue-700" />,
-      onClick: () => navigate("/register-option"),
+      title: "Cadastro Kalunga", 
+
+      icon: <img src="./kalunga-logo-png.webp" className="w-[120px] h-[100px] text-blue-700" />,
+      onClick: () => navigate("/register"),
     },
     {
-      title: "Search",
-      icon: <SearchCheckIcon className="w-10 h-10 text-red-700" />,
-      onClick: () => navigate("/views"),
+      title: "Estoque Produtos",
+      icon:  <img src="./estoque.png" className="w-[120px] h-[100px] text-blue-700"/>, //className="w-10 h-10 text-red-700" 
+      onClick: () => navigate("/estoque"),
     },
     {
-      title: "Dashboard",
-      icon: <FolderKanban className="w-10 h-10 text-green-700" />,
-      onClick: () => navigate("/dashboard"),
+      title: "Retiradas",
+      icon:  <img src="./retirada.png" className="w-[120px] h-[100px] text-blue-700"/>,
+      onClick: () => navigate("/retiradas"),
+    },
+        {
+      title: "Históricos de Retiradas",
+      icon:  <img src="./retiradas.png" className="w-[120px] h-[100px] text-blue-700"/>,
+      onClick: () => navigate("/historic-retiradas"),
     },
     {
-      title: "Users",
-      icon: <User2Icon className="w-10 h-10 text-green-700" />,
+      title: "Cadastros de Usuários",
+      icon:  <img src="./novouser.png" className="w-[120px] h-[100px] text-blue-700"/>,
       onClick: () => navigate("/register-user"),
     },
-    {
-      title: "Called",
-      icon: <ClipboardList className="w-10 h-10 text-red-700" />,
-      onClick: () => navigate("/chamados"),
-    },
+
   ];
 
   return (
