@@ -174,7 +174,7 @@ export default function Retirada() {
           <select className="p-3 border rounded-lg" value={retirante} onChange={(e) => setRetirante(e.target.value)}>
             <option value="">Escolha o Responsável</option>
             <option value="Karol">Karol</option>
-            <option value="Luciano">Luciano</option>
+            <option value="Guilherme">Guilherme</option>
             <option value="Rafael">Rafael</option>
             <option value="Rita">Rita</option>
           </select>

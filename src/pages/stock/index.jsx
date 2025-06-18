@@ -148,14 +148,14 @@ export default function Estoque() {
             <ArrowLeft /> Voltar
           </button>
         </div>
-  <div className="flex items-center gap-4 mb-5">
-  <img 
-    src="./kalunga-logo-png.webp" 
-    alt="Logo Kalunga" 
-    className="h-20 object-contain" // h-20 = 80px
-  />
-  <h2 className="text-3xl font-bold text-blue-700">Estoque KaLunga</h2>
-</div>
+      <div className="flex items-center gap-4 mb-5">
+      <img 
+        src="./kalunga-logo-png.webp" 
+        alt="Logo Kalunga" 
+        className="h-20 object-contain" // h-20 = 80px
+      />
+      <h2 className="text-3xl font-bold text-blue-700">Estoque KaLunga</h2>
+    </div>
 
         {/* Filtros */}
         <input
