@@ -14,9 +14,11 @@ export default function Footer() {
   }, []);
 
   return (
-    <footer className="bg-gradient-to-r from-purple-600 via-indigo-700 to-gray-900 text-white text-sm p-3 flex justify-between items-center">
+    <footer className="bg-gray-50 border-t border-gray-200 text-gray text-sm p-3 flex justify-between items-center">
       <p>👤 Usuário: {user?.email || "Desconhecido"}</p>
       <p>📅 {dateTime}</p>
+      <div className="text-center text-sm text-gray-600">© 2024 Instituto Reciclar. Todos os direitos reservados.</div>
+
     </footer>
   );
 }
