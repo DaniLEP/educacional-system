@@ -7,12 +7,16 @@ import { ArrowLeft, X } from "lucide-react";
 
 const STATUS_OPTIONS = [ { value: "Novo", label: "Novo" }, { value: "Aberto", label: "Aberto" }, { value: "Vencido", label: "Vencido" }];
 
-function formatDate(dateString) {
-  if (!dateString) return "-";
-  const d = new Date(dateString);
-  if (isNaN(d.getTime())) return dateString;
-  return d.toLocaleDateString("pt-BR");
-}
+  // Formatar data sem shift de fuso
+  const formatDate = (date) => {
+    if (!date) return "--";
+    const [y, m, d] = date.slice(0, 10).split("-");
+    const dt = new Date(Date.UTC(+y, +m - 1, +d));
+    const dd = String(dt.getUTCDate()).padStart(2, "0");
+    const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+    const yyyy = dt.getUTCFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
 
 export default function Estoque() {
   const [notebooks, setNotebooks] = useState([]);
