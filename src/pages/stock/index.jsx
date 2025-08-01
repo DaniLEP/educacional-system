@@ -127,7 +127,7 @@ export default function Estoque() {
           {produtosFiltrados.length === 0 ? (<p className="text-center text-gray-600 py-6">Nenhum produto encontrado no estoque.</p>) : (
             <table className="min-w-full text-sm border table-auto">
               <thead className="bg-gray-100 text-gray-700">
-                <tr>{["SKU", "Produto", "Marca", "Quantidade", "Local", "Data de Validade", "Status", "Observações", "Ações"].map((h) => (
+                <tr>{["SKU", "Marca", "Produto", "Quantidade", "Local", "Data de Validade", "Status", "Observações", "Ações"].map((h) => (
                   <th key={h} className="p-2 border text-center whitespace-nowrap" scope="col">{h}</th>))}
                 </tr>
               </thead>
