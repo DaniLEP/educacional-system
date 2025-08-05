@@ -53,13 +53,14 @@ export default function Retirada() {
   }
 
   // Função para registrar notificação no Firebase
-  const registrarNotificacao = async (usuario, item, quantidade) => {
+  const registrarNotificacao = async (usuario, item, quantidade, marca) => {
     const db = getDatabase(app)
     const notificacoesRef = ref(db, 'notificacoes')
     await push(notificacoesRef, {
       usuario,
       item,
       quantidade,
+      marca,
       acao: 'retirou',
       data: new Date().toISOString(),
     })
@@ -166,7 +167,7 @@ export default function Retirada() {
       })
 
       // Registrar notificação da retirada
-      await registrarNotificacao(retirante, nomeProduto, retiradaNum)
+      await registrarNotificacao(retirante, nomeProduto, retiradaNum, marca)
 
       toast({
         title: "Retirada registrada!",

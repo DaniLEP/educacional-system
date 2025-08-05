@@ -40,7 +40,7 @@ const router = createBrowserRouter([
 
       // Rotas que só Admin e Coordenador podem acessar
       {
-        element: <PrivateRoute allowedRoles={["Admin", "Coordenador"]} />,
+        element: <PrivateRoute allowedRoles={["Admin", "Coordenador", "Auxiliar"]} />,
         children: [
           { path: "/register", element: (<Suspense fallback={<Loading />}><CadastroKalunga /></Suspense>),},
           { path: "/painel/notificacoes", element: (<Suspense fallback={<Loading />}><PainelNotificacoes /> </Suspense>),},
@@ -48,6 +48,8 @@ const router = createBrowserRouter([
           { path: "/estoque", element: (<Suspense fallback={<Loading />}><Estoque /></Suspense>),},
           { path: "/retiradas", element: (<Suspense fallback={<Loading />}><Retirada /></Suspense>), },
           { path: "/historic-retiradas", element: (<Suspense fallback={<Loading />}><HistoricoRetiradas /></Suspense> ),},
+          { path: "/register-user",element: (<Suspense fallback={<Loading />}><RegistroUser /></Suspense>),},
+
         ],
       },
 
