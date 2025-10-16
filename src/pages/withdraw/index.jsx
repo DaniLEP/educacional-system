@@ -106,11 +106,34 @@ export default function Retirada() {
     catch (error) {console.error(error), toast({title: "Erro", description: "Erro ao registrar retirada.", variant: "destructive"})}
   }
 
-  const formatDate = (date) => {
-    if (!date) return "--"
-    const [y, m, d] = date.split("T")[0].split("-")
-    return `${d}/${m}/${y}`
+const formatDate = (date) => {
+  if (!date) return "--";
+
+  try {
+    // Caso seja um objeto Date
+    if (date instanceof Date) {
+      return date.toLocaleDateString("pt-BR");
+    }
+
+    // Caso seja um número (timestamp)
+    if (typeof date === "number") {
+      const d = new Date(date);
+      return d.toLocaleDateString("pt-BR");
+    }
+
+    // Caso seja string (como "2025-10-16" ou "2025-10-16T00:00:00Z")
+    if (typeof date === "string") {
+      const normalized = date.includes("T") ? date.split("T")[0] : date;
+      const [y, m, d] = normalized.split("-");
+      if (y && m && d) return `${d}/${m}/${y}`;
+    }
+
+    // fallback se algo vier inesperado
+    return "--";
+  } catch {
+    return "--";
   }
+};
 
   const getValidadeBadge = (dias) => {
     if (dias <= 2) {
@@ -157,7 +180,7 @@ return (
                       <DialogTrigger asChild>
                         <Input id="sku" placeholder="Clique para selecionar produto" value={sku} readOnly className="cursor-pointer" />
                       </DialogTrigger>
-                      <DialogContent className="w-full max-w-3xl max-h-[485vh] flex flex-col">
+<DialogContent className="w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden rounded-2xl">
                         <DialogHeader className="flex-shrink-0">
                           <DialogTitle className="flex items-center gap-2"><Search className="w-5 h-5" />Selecionar Produto do Estoque</DialogTitle>
                           <p className="text-sm text-gray-600">Encontre e selecione o produto que deseja retirar do estoque</p>
