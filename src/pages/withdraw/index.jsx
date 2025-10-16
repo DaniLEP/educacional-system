@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { getDatabase, ref, onValue, update, push } from "firebase/database"
+import { getAuth, onAuthStateChanged } from "firebase/auth"      // <-- IMPORT AUTH
 import { app } from "../../../firebase"
 import { Button } from "@/components/ui/button/button"
 import { Input } from "@/components/ui/input/input"
@@ -19,13 +20,29 @@ export default function Retirada() {
   const [nomeProduto, setNomeProduto] = useState("")
   const [marca, setMarca] = useState("")
   const [quantidade, setQuantidade] = useState("")
-  const [retirante, setRetirante] = useState("")
+  const [retirante, setRetirante] = useState("")  // <-- será preenchido pelo login
   const [local, setLocal] = useState("")
   const [estoque, setEstoque] = useState([])
   const [filteredProdutos, setFilteredProdutos] = useState([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [dataSelecionada, setDataSelecionada] = useState(new Date().toISOString().split("T")[0])
+
+  const auth = getAuth(app)    // AUTH INSTANCE
+
+  // Detectar usuário logado e setar retirante automaticamente
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // Você pode personalizar aqui: pegar displayName, email, etc.
+        // Exemplo: setRetirante(user.displayName || user.email || "Usuário");
+        setRetirante(user.displayName || user.email || "Usuário");
+      } else {
+        setRetirante(""); // usuário deslogado
+      }
+    })
+    return () => unsubscribe()
+  }, [auth])
 
   const calcularDiasParaValidade = (dataValidade) => {
     if (!dataValidade) return Number.POSITIVE_INFINITY
@@ -35,6 +52,20 @@ export default function Retirada() {
     return Math.ceil(diff / (1000 * 60 * 60 * 24))
   }
 
+  // Função para registrar notificação no Firebase
+  const registrarNotificacao = async (usuario, item, quantidade, marca) => {
+    const db = getDatabase(app)
+    const notificacoesRef = ref(db, 'notificacoes')
+    await push(notificacoesRef, {
+      usuario,
+      item,
+      quantidade,
+      marca,
+      acao: 'retirou',
+      data: new Date().toISOString(),
+    })
+  }
+
   // Buscar dados do estoque
   useEffect(() => {
     const db = getDatabase(app)
@@ -42,22 +73,36 @@ export default function Retirada() {
     const unsubscribe = onValue(estoqueRef, (snapshot) => {
       const data = snapshot.val() || {}
       const lista = Object.entries(data).map(([id, produto]) => {
-      const dias = calcularDiasParaValidade(produto.dataValidade)
-        return {...produto, id, validadeStatus: dias}})
-      setEstoque(lista)})
-    return () => unsubscribe()}, [])
+        const dias = calcularDiasParaValidade(produto.dataValidade)
+        return { ...produto, id, validadeStatus: dias }
+      })
+      setEstoque(lista)
+    })
+    return () => unsubscribe()
+  }, [])
 
   // Alerta para produtos com validade próxima
   useEffect(() => {
     const alertaValidade = estoque.some((p) => p.validadeStatus <= 7)
     if (alertaValidade) {
-      toast({title: "Atenção!", description: "Existem produtos próximos do vencimento.", variant: "destructive",})}}, [estoque])
+      toast({
+        title: "Atenção!",
+        description: "Existem produtos próximos do vencimento.",
+        variant: "destructive",
+      })
+    }
+  }, [estoque])
 
   // Filtro da busca
   useEffect(() => {
     const termo = searchTerm.toLowerCase()
-    const resultado = estoque.filter((item) => String(item.produto || "").toLowerCase().includes(termo) || String(item.sku || "").toLowerCase().includes(termo),)
-    setFilteredProdutos(searchTerm.trim() === "" ? estoque : resultado)}, [searchTerm, estoque])
+    const resultado = estoque.filter(
+      (item) =>
+        String(item.produto || "").toLowerCase().includes(termo) ||
+        String(item.sku || "").toLowerCase().includes(termo),
+    )
+    setFilteredProdutos(searchTerm.trim() === "" ? estoque : resultado)
+  }, [searchTerm, estoque])
 
   // Selecionar produto da lista
   const handleProdutoSelecionado = (produto) => {
@@ -67,19 +112,30 @@ export default function Retirada() {
     setLocal(produto.local)
     setQuantidade("")
     setIsModalOpen(false)
-    toast({title: "Produto selecionado", description: `${produto.produto} foi selecionado para retirada.`,})
+    toast({
+      title: "Produto selecionado",
+      description: `${produto.produto} foi selecionado para retirada.`,
+    })
   }
 
   // Registrar retirada no banco e atualizar estoque
   const handleRetirada = async () => {
     if (!sku || !nomeProduto || !marca || !quantidade || !retirante) {
-      toast({title: "Campos obrigatórios", description: "Por favor, preencha todos os campos.", variant: "destructive",})
+      toast({
+        title: "Campos obrigatórios",
+        description: "Por favor, preencha todos os campos.",
+        variant: "destructive",
+      })
       return
     }
 
     const retiradaNum = Number(quantidade)
     if (isNaN(retiradaNum) || retiradaNum <= 0) {
-      toast({title: "Quantidade inválida", description: "Por favor, insira uma quantidade válida.", variant: "destructive",})
+      toast({
+        title: "Quantidade inválida",
+        description: "Por favor, insira uma quantidade válida.",
+        variant: "destructive",
+      })
       return
     }
 
@@ -90,20 +146,48 @@ export default function Retirada() {
       const novaQuantidade = produtoAtual?.quantidade - retiradaNum
 
       if (novaQuantidade < 0) {
-      toast({ title: "Estoque insuficiente", description: "A quantidade informada é maior que a disponível.", variant: "destructive",})
-        return}
+        toast({
+          title: "Estoque insuficiente",
+          description: "A quantidade informada é maior que a disponível.",
+          variant: "destructive",
+        })
+        return
+      }
       await update(produtoRef, { quantidade: novaQuantidade })
       const retiradaRef = ref(db, "Retiradas")
-      await push(retiradaRef, { sku, produto: nomeProduto, marca, quantidade: retiradaNum, retirante, local, data: dataSelecionada, timestamp: Date.now(),})
-      toast({ title: "Retirada registrada!", description: `${retiradaNum} unidades de ${nomeProduto} foram retiradas por ${retirante}.`, })
+      await push(retiradaRef, {
+        sku,
+        produto: nomeProduto,
+        marca,
+        quantidade: retiradaNum,
+        retirante,
+        local,
+        data: dataSelecionada,
+        timestamp: Date.now(),
+      })
+
+      // Registrar notificação da retirada
+      await registrarNotificacao(retirante, nomeProduto, retiradaNum, marca)
+
+      toast({
+        title: "Retirada registrada!",
+        description: `${retiradaNum} unidades de ${nomeProduto} foram retiradas por ${retirante}.`,
+      })
       setSku("")
       setNomeProduto("")
       setMarca("")
       setLocal("")
       setQuantidade("")
-      setRetirante("")
-      setDataSelecionada(new Date().toISOString().split("T")[0])} 
-    catch (error) {console.error(error), toast({title: "Erro", description: "Erro ao registrar retirada.", variant: "destructive"})}
+      // Aqui não limpa retirante pois é automático pelo login
+      setDataSelecionada(new Date().toISOString().split("T")[0])
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: "Erro",
+        description: "Erro ao registrar retirada.",
+        variant: "destructive",
+      })
+    }
   }
 
 const formatDate = (date) => {
@@ -137,32 +221,52 @@ const formatDate = (date) => {
 
   const getValidadeBadge = (dias) => {
     if (dias <= 2) {
-      return (<Badge variant="destructive" className="flex items-center gap-1"> <AlertTriangle className="w-3 h-3" /> Vencido </Badge>)
-    } 
-    else if (dias <= 7) {
-      return (<Badge variant="destructive" className="flex items-center gap-1"> <AlertTriangle className="w-3 h-3" /> Crítico </Badge>)
-    } 
-    else if (dias <= 30) {
-      return (<Badge variant="secondary" className="flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Atenção </Badge>)
+      return (
+        <Badge variant="destructive" className="flex items-center gap-1">
+          <AlertTriangle className="w-3 h-3" /> Vencido
+        </Badge>
+      )
+    } else if (dias <= 7) {
+      return (
+        <Badge variant="destructive" className="flex items-center gap-1">
+          <AlertTriangle className="w-3 h-3" /> Crítico
+        </Badge>
+      )
+    } else if (dias <= 30) {
+      return (
+        <Badge variant="secondary" className="flex items-center gap-1">
+          <AlertTriangle className="w-3 h-3" /> Atenção
+        </Badge>
+      )
     }
     return <Badge variant="outline">Normal</Badge>
   }
 
-    const navigate = useNavigate();
+  const navigate = useNavigate()
 
-return (
+  return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg"><Package className="w-6 h-6 text-primary" /> </div>
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Package className="w-6 h-6 text-primary" />{" "}
+            </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Retirada de Produtos</h1>
               <p className="text-sm text-gray-600">Gerencie a saída de produtos do estoque</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" className="flex items-center gap-2" onClick={() => navigate('/Home')}> <ArrowLeft className="w-4 h-4" /> Voltar </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+            onClick={() => navigate("/Home")}
+          >
+            {" "}
+            <ArrowLeft className="w-4 h-4" /> Voltar{" "}
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -170,20 +274,35 @@ return (
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Package className="w-5 h-5" /> Informações da Retirada </CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="w-5 h-5" /> Informações da Retirada{" "}
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="sku" className="flex items-center gap-2"><Hash className="w-4 h-4" /> SKU </Label>
+                    <Label htmlFor="sku" className="flex items-center gap-2">
+                      <Hash className="w-4 h-4" /> SKU{" "}
+                    </Label>
                     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                       <DialogTrigger asChild>
-                        <Input id="sku" placeholder="Clique para selecionar produto" value={sku} readOnly className="cursor-pointer" />
+                        <Input
+                          id="sku"
+                          placeholder="Clique para selecionar produto"
+                          value={sku}
+                          readOnly
+                          className="cursor-pointer"
+                        />
                       </DialogTrigger>
 <DialogContent className="w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden rounded-2xl">
                         <DialogHeader className="flex-shrink-0">
-                          <DialogTitle className="flex items-center gap-2"><Search className="w-5 h-5" />Selecionar Produto do Estoque</DialogTitle>
-                          <p className="text-sm text-gray-600">Encontre e selecione o produto que deseja retirar do estoque</p>
+                          <DialogTitle className="flex items-center gap-2">
+                            <Search className="w-5 h-5" />
+                            Selecionar Produto do Estoque
+                          </DialogTitle>
+                          <p className="text-sm text-gray-600">
+                            Encontre e selecione o produto que deseja retirar do estoque
+                          </p>
                         </DialogHeader>
 
                         <div className="flex-1 flex flex-col gap-4 min-h-0">
@@ -191,10 +310,18 @@ return (
                           <div className="flex-shrink-0">
                             <div className="relative">
                               <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                              <Input placeholder="Buscar por nome do produto ou SKU..." value={searchTerm} 
-                                onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 h-12"/>
+                              <Input
+                                placeholder="Buscar por nome do produto ou SKU..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 h-12"
+                              />
                             </div>
-                            {searchTerm && (<p className="text-sm text-gray-600 mt-2">{filteredProdutos.length} produto(s) encontrado(s)</p>)}
+                            {searchTerm && (
+                              <p className="text-sm text-gray-600 mt-2">
+                                {filteredProdutos.length} produto(s) encontrado(s)
+                              </p>
+                            )}
                           </div>
 
                           {/* Lista de Produtos */}
@@ -203,12 +330,20 @@ return (
                               <div className="flex flex-col items-center justify-center py-12 text-gray-500">
                                 <Package className="w-26 h-16 mb-4 opacity-50" />
                                 <h3 className="text-lg font-medium mb-2">Nenhum produto encontrado</h3>
-                                <p className="text-sm text-center">{searchTerm ? "Tente ajustar os termos de busca" : "Não há produtos disponíveis no estoque"}</p>
-                              </div> ) : (
+                                <p className="text-sm text-center">
+                                  {searchTerm
+                                    ? "Tente ajustar os termos de busca"
+                                    : "Não há produtos disponíveis no estoque"}
+                                </p>
+                              </div>
+                            ) : (
                               <div className="grid gap-3">
                                 {filteredProdutos.map((produto) => (
-                                  <Card key={produto.id} onClick={() => handleProdutoSelecionado(produto)}
-                                    className="hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-transparent hover:border-l-primary">
+                                  <Card
+                                    key={produto.id}
+                                    onClick={() => handleProdutoSelecionado(produto)}
+                                    className="hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-transparent hover:border-l-primary"
+                                  >
                                     <CardContent className="p-4">
                                       <div className="flex items-center justify-between">
                                         <div className="flex-1 min-w-0">
@@ -217,7 +352,10 @@ return (
                                               <h4 className="font-semibold text-gray-900 truncate">{produto.produto}</h4>
                                               <p className="text-sm text-gray-600">{produto.marca}</p>
                                             </div>
-                                            <div className="ml-4 flex-shrink-0"> {getValidadeBadge(produto.validadeStatus)}</div>
+                                            <div className="ml-4 flex-shrink-0">
+                                              {" "}
+                                              {getValidadeBadge(produto.validadeStatus)}
+                                            </div>
                                           </div>
 
                                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
@@ -241,7 +379,16 @@ return (
                                         </div>
 
                                         <div className="ml-4 flex-shrink-0">
-                                          <Button size="sm" className="whitespace-nowrap" onClick={(e) => {e.stopPropagation(), handleProdutoSelecionado(produto) }}>Selecionar</Button>
+                                          <Button
+                                            size="sm"
+                                            className="whitespace-nowrap"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleProdutoSelecionado(produto)
+                                            }}
+                                          >
+                                            Selecionar
+                                          </Button>
                                         </div>
                                       </div>
 
@@ -250,7 +397,9 @@ return (
                                           <div className="flex items-center gap-2 text-red-700">
                                             <AlertTriangle className="w-4 h-4" />
                                             <span className="text-sm font-medium">
-                                              {produto.validadeStatus <= 2 ? "Produto vencido ou prestes a vencer!" : `Vence em ${produto.validadeStatus} dias`}
+                                              {produto.validadeStatus <= 2
+                                                ? "Produto vencido ou prestes a vencer!"
+                                                : `Vence em ${produto.validadeStatus} dias`}
                                             </span>
                                           </div>
                                         </div>
@@ -264,8 +413,13 @@ return (
 
                           {/* Footer do Modal */}
                           <div className="flex-shrink-0 flex items-center justify-between pt-4 border-t">
-                            <div className="text-sm text-gray-600">{filteredProdutos.length} de {estoque.length} produtos</div>
-                            <Button variant="outline" onClick={() => setIsModalOpen(false)}> Cancelar</Button>
+                            <div className="text-sm text-gray-600">
+                              {filteredProdutos.length} de {estoque.length} produtos
+                            </div>
+                            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+                              {" "}
+                              Cancelar
+                            </Button>
                           </div>
                         </div>
                       </DialogContent>
@@ -292,28 +446,37 @@ return (
 
                   <div className="space-y-2">
                     <Label htmlFor="quantidade">Quantidade</Label>
-                    <Input id="quantidade"  type="number" min="1" placeholder="Digite a quantidade"value={quantidade} onChange={(e) => setQuantidade(e.target.value)}/>
+                    <Input
+                      id="quantidade"
+                      type="number"
+                      min="1"
+                      placeholder="Digite a quantidade"
+                      value={quantidade}
+                      onChange={(e) => setQuantidade(e.target.value)}
+                    />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="retirante" className="flex items-center gap-2"><User className="w-4 h-4" />Responsável</Label>
-                    <Select value={retirante} onValueChange={setRetirante}>
-                      <SelectTrigger><SelectValue placeholder="Selecione o responsável" /></SelectTrigger>
-                      <SelectContent  className="w-[20px]">
-                        <SelectItem value="Karol">Karoline Beretta</SelectItem>
-                        <SelectItem value="Guilherme">Guilherme Mendes</SelectItem>
-                        <SelectItem value="Rafael">Rafael Souza</SelectItem>
-                        <SelectItem value="Rita">Rita Cássia</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="retirante" className="flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      Responsável
+                    </Label>
+                    {/* Campo retirante desabilitado, preenchido pelo login */}
+                    <Input id="retirante" value={retirante} readOnly className="bg-gray-100" />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="data" className="flex items-center gap-2"> <Calendar className="w-4 h-4" /> Data da Retirada</Label>
+                  <Label htmlFor="data" className="flex items-center gap-2">
+                    {" "}
+                    <Calendar className="w-4 h-4" /> Data da Retirada
+                  </Label>
                   <Input id="data" type="date" value={dataSelecionada} onChange={(e) => setDataSelecionada(e.target.value)} />
                 </div>
-                <Button onClick={handleRetirada} className="w-full" size="lg"> Registrar Retirada</Button>
+                <Button onClick={handleRetirada} className="w-full" size="lg">
+                  {" "}
+                  Registrar Retirada
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -321,7 +484,9 @@ return (
           {/* Resumo */}
           <div className="space-y-4">
             <Card>
-              <CardHeader><CardTitle className="text-lg">Resumo da Retirada</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-lg">Resumo da Retirada</CardTitle>
+              </CardHeader>
               <CardContent className="space-y-3">
                 {nomeProduto ? (
                   <>
@@ -348,27 +513,43 @@ return (
                         <span className="font-medium">{formatDate(dataSelecionada)}</span>
                       </div>
                     </div>
-                  </> ) : (<div className="text-center py-8 text-gray-500"><Package className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>Selecione um produto para ver o resumo</p> </div> )}
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Package className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>Selecione um produto para ver o resumo</p>{" "}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             {/* Alertas */}
             <Card className="border-amber-200 bg-amber-50">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2 text-amber-800"><AlertTriangle className="w-5 h-5" />Produtos em Alerta</CardTitle>
+                <CardTitle className="text-lg flex items-center gap-2 text-amber-800">
+                  <AlertTriangle className="w-5 h-5" />
+                  Produtos em Alerta
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {estoque .filter((p) => p.validadeStatus <= 7) .map((produto) => (
-                      <div key={produto.id} className="flex items-center justify-between p-2 bg-white rounded border border-amber-200">
+                  {estoque
+                    .filter((p) => p.validadeStatus <= 7)
+                    .map((produto) => (
+                      <div
+                        key={produto.id}
+                        className="flex items-center justify-between p-2 bg-white rounded border border-amber-200"
+                      >
                         <div>
                           <p className="font-medium text-sm">{produto.produto}</p>
                           <p className="text-xs text-gray-600">{produto.sku}</p>
                         </div>
                         {getValidadeBadge(produto.validadeStatus)}
-                      </div> ))}
-                  {estoque.filter((p) => p.validadeStatus <= 7).length === 0 && (<p className="text-sm text-amber-700">Nenhum produto em alerta</p>)}
+                      </div>
+                    ))}
+                  {estoque.filter((p) => p.validadeStatus <= 7).length === 0 && (
+                    <p className="text-sm text-amber-700">Nenhum produto em alerta</p>
+                  )}
                 </div>
               </CardContent>
             </Card>

@@ -1,9 +1,12 @@
 
 import './App.css'
+import { usePresence } from '../usePresence'
 import { Outlet } from 'react-router-dom'
 
 function App() {
 
+  usePresence ()
+  
   return (
     <>
       <div>

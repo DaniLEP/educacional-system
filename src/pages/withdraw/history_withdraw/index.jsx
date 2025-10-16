@@ -40,12 +40,17 @@ export default function HistoricoRetiradas() {
     return matchProduto && matchResponsavel && matchData
   })
 
-  function formatDate(dateString) {
-    if (!dateString) return "-"
-    const d = new Date(dateString)
-    if (isNaN(d.getTime())) return dateString
-    return d.toLocaleDateString("pt-BR")
+  const formatData = (dataISO) => {
+    const date = new Date(dataISO)
+    return date.toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
   }
+
 
   if (loading) {
     return (
@@ -158,7 +163,7 @@ export default function HistoricoRetiradas() {
                             <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-sm font-medium">{r.retirante?.charAt(0)} </div> {r.retirante}
                           </div>
                         </TableCell>
-                        <TableCell>{formatDate(r.dataRetirada)}</TableCell>
+                        <TableCell>{formatData(r.dataRetirada)}</TableCell>
                       </TableRow> ))}
                   </TableBody>
                 </Table>
